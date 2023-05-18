@@ -5,7 +5,9 @@ import { Point } from '../../utils/Canvas.types';
 // type Point = {
 //   x: number;
 //   y: number;
+//   name: string;
 // };
+import { drawGrid, drawPoint, drawArea } from '../../utils/drawGrid';
 
 export const Canvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -26,35 +28,21 @@ export const Canvas: React.FC = () => {
       points.forEach((point) => drawPoint(context, point));
     };
 
-    // Draw a 30px grid
-    const drawGrid = (
-      context: CanvasRenderingContext2D,
-      width: number,
-      height: number,
-      step: number,
-    ) => {
-      context.beginPath();
-      context.strokeStyle = '#ddd'; // Grid line color
-      for (let x = 0; x <= width; x += step) {
-        context.moveTo(x, 0);
-        context.lineTo(x, height);
-      }
-      for (let y = 0; y <= height; y += step) {
-        context.moveTo(0, y);
-        context.lineTo(width, y);
-      }
-      context.stroke();
+    const calculateAngle = (A: Point, B: Point, C: Point) => {
+      const BA = Math.sqrt(Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2));
+      const BC = Math.sqrt(Math.pow(B.x - C.x, 2) + Math.pow(B.y - C.y, 2));
+      const AC = Math.sqrt(Math.pow(C.x - A.x, 2) + Math.pow(C.y - A.y, 2));
+      return Math.acos((BA * BA + BC * BC - AC * AC) / (2 * BA * BC));
     };
 
-    // Draw a point
-    const drawPoint = (context: CanvasRenderingContext2D, point: Point) => {
-      context.beginPath();
-      context.arc(point.x, point.y, 5, 0, 2 * Math.PI);
-      context.fill();
-      context.fillStyle = 'black';
-      context.fill();
-      context.font = '20px Arial';
-      context.fillText(point.name, point.x + 10, point.y + 10);
+    const calculateArea = (points: Point[]) => {
+      let area = 0;
+      for (let i = 0; i < points.length; i++) {
+        const { x: x1, y: y1 } = points[i];
+        const { x: x2, y: y2 } = points[(i + 1) % points.length]; // Use modulo to loop back to the first point
+        area += x1 * y2 - x2 * y1;
+      }
+      return Math.abs(area) / 2;
     };
 
     // Add a point and draw a line to the previous point when the canvas is clicked
@@ -62,8 +50,43 @@ export const Canvas: React.FC = () => {
       const rect = canvas.getBoundingClientRect();
       const x = Math.round((event.clientX - rect.left) / 30) * 30;
       const y = Math.round((event.clientY - rect.top) / 30) * 30;
+      const newPoint: Point = { x, y, name: String.fromCharCode(65 + (points.length % 26)) }; // Names will be A, B, C, ..., Z, A, B, C, ...
+      setPoints((prevPoints) => {
+        const updatedPoints = [...prevPoints, newPoint];
+        if (updatedPoints.length >= 3) {
+          const A = updatedPoints[updatedPoints.length - 3];
+          const B = updatedPoints[updatedPoints.length - 2];
+          const C = updatedPoints[updatedPoints.length - 1];
+          const angle = calculateAngle(A, B, C);
+          console.log(
+            `The angle between points ${A.name}(${A.x}, ${A.y}), ${B.name}(${B.x}, ${B.y}), and ${
+              C.name
+            }(${C.x}, ${C.y}) is ${angle} radians or ${angle * (180 / Math.PI)} degrees.`,
+          );
+        }
+        return updatedPoints;
+      });
+      // If the user clicked near the starting point and there are at least 3 points, close the polygon
+      if (points.length >= 3) {
+        const start = points[0];
+        const dx = x - start.x;
+        const dy = y - start.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 10) {
+          // 10 is the radius within which we consider the points to be "near" each other
+          context?.beginPath();
+          context?.moveTo(points[points.length - 1].x, points[points.length - 1].y);
+          context?.lineTo(start.x, start.y);
+          context?.stroke();
+          const area = calculateArea(points);
+          console.log(`The area of the polygon is ${area} square pixels.`);
+          if (context) {
+            drawArea(context, area);
+          }
+          return;
+        }
+      }
       const point: Point = { x, y, name: currentPointName };
-      setPoints((points) => [...points, point]);
+      // setPoints((points) => [...points, point]);
       setCurrentPointName(String.fromCharCode(currentPointName.charCodeAt(0) + 1));
       console.log(currentPointName);
       const nextCharCode = currentPointName.charCodeAt(0) + 1;
@@ -74,6 +97,7 @@ export const Canvas: React.FC = () => {
       } else {
         setCurrentPointName(String.fromCharCode(nextCharCode) + currentPointName.slice(1));
       }
+
       drawPoint(context, point);
     };
 
