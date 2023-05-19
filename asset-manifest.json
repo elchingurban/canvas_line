@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/elchingurban.github.io/static/css/main.4b3694b2.css",
+    "main.js": "/elchingurban.github.io/static/js/main.d97f298b.js",
+    "index.html": "/elchingurban.github.io/index.html",
+    "main.4b3694b2.css.map": "/elchingurban.github.io/static/css/main.4b3694b2.css.map",
+    "main.d97f298b.js.map": "/elchingurban.github.io/static/js/main.d97f298b.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.4b3694b2.css",
+    "static/js/main.d97f298b.js"
+  ]
+}
