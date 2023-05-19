@@ -25,7 +25,7 @@
   "rules": {
     "react/react-in-jsx-scope": "off",
     "camelcase": "error",
-    "spaced-comment": "error",
+    "spaced-comment": "warn",
     "no-duplicate-imports": "error",
     "indent": "off",
     "linebreak-style": ["off"],

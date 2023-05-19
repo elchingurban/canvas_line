@@ -1,18 +1,28 @@
 import React, { useRef, useEffect, useState } from 'react';
 
+import { GridContext } from '../../context/GridContext';
+
 import styles from './Canvas.module.scss';
+
 import { Point } from '../../utils/Canvas.types';
-// type Point = {
-//   x: number;
-//   y: number;
-//   name: string;
-// };
-import { drawGrid, drawPoint, drawArea } from '../../utils/drawGrid';
+import {
+  drawGrid,
+  drawPoint,
+  drawArea,
+  calculateAngle,
+  calculateArea,
+  calculateDistance,
+  drawDistance,
+  pixelsToCentimeters,
+} from '../../utils/gridFunction';
+import { AlertComponent } from '../../layout/Alert';
 
 export const Canvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [points, setPoints] = useState<Point[]>([]);
-  const [currentPointName, setCurrentPointName] = useState('A');
+  // const [currentPointName, setCurrentPointName] = useState('A');
+  const [area, setArea] = useState<number | null>(null);
+  const [, setHistory] = useState<Point[][]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -28,31 +38,19 @@ export const Canvas: React.FC = () => {
       points.forEach((point) => drawPoint(context, point));
     };
 
-    const calculateAngle = (A: Point, B: Point, C: Point) => {
-      const BA = Math.sqrt(Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2));
-      const BC = Math.sqrt(Math.pow(B.x - C.x, 2) + Math.pow(B.y - C.y, 2));
-      const AC = Math.sqrt(Math.pow(C.x - A.x, 2) + Math.pow(C.y - A.y, 2));
-      return Math.acos((BA * BA + BC * BC - AC * AC) / (2 * BA * BC));
-    };
-
-    const calculateArea = (points: Point[]) => {
-      let area = 0;
-      for (let i = 0; i < points.length; i++) {
-        const { x: x1, y: y1 } = points[i];
-        const { x: x2, y: y2 } = points[(i + 1) % points.length]; // Use modulo to loop back to the first point
-        area += x1 * y2 - x2 * y1;
-      }
-      return Math.abs(area) / 2;
-    };
-
     // Add a point and draw a line to the previous point when the canvas is clicked
     const handleClick = (event: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = Math.round((event.clientX - rect.left) / 30) * 30;
       const y = Math.round((event.clientY - rect.top) / 30) * 30;
-      const newPoint: Point = { x, y, name: String.fromCharCode(65 + (points.length % 26)) }; // Names will be A, B, C, ..., Z, A, B, C, ...
+
+      // const newPoint: Point = { x, y, name: String.fromCharCode(65 + (points.length % 26)) };
+      const newPointName = String.fromCharCode(65 + (points.length % 26));
+      const newPoint: Point = { x, y, name: newPointName };
       setPoints((prevPoints) => {
         const updatedPoints = [...prevPoints, newPoint];
+
+        setHistory((prevHistory) => [...prevHistory, updatedPoints]);
         if (updatedPoints.length >= 3) {
           const A = updatedPoints[updatedPoints.length - 3];
           const B = updatedPoints[updatedPoints.length - 2];
@@ -64,41 +62,27 @@ export const Canvas: React.FC = () => {
             }(${C.x}, ${C.y}) is ${angle} radians or ${angle * (180 / Math.PI)} degrees.`,
           );
         }
+        if (points.length >= 3) {
+          const start = points[0];
+          const dx = x - start.x;
+          const dy = y - start.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 10) {
+            // 10 is the radius within which we consider the points to be "near" each other
+            context.beginPath();
+            context.moveTo(points[points.length - 1].x, points[points.length - 1].y);
+            context.lineTo(start.x, start.y);
+            context.stroke();
+            const areaInPixels = calculateArea(points);
+            const areaInCmSquare = pixelsToCentimeters(areaInPixels);
+            console.log(`The area of the polygon is ${areaInCmSquare} square cm.`);
+            drawArea(context, areaInCmSquare);
+          }
+        }
         return updatedPoints;
       });
-      // If the user clicked near the starting point and there are at least 3 points, close the polygon
-      if (points.length >= 3) {
-        const start = points[0];
-        const dx = x - start.x;
-        const dy = y - start.y;
-        if (Math.sqrt(dx * dx + dy * dy) < 10) {
-          // 10 is the radius within which we consider the points to be "near" each other
-          context?.beginPath();
-          context?.moveTo(points[points.length - 1].x, points[points.length - 1].y);
-          context?.lineTo(start.x, start.y);
-          context?.stroke();
-          const area = calculateArea(points);
-          console.log(`The area of the polygon is ${area} square pixels.`);
-          if (context) {
-            drawArea(context, area);
-          }
-          return;
-        }
-      }
-      const point: Point = { x, y, name: currentPointName };
-      // setPoints((points) => [...points, point]);
-      setCurrentPointName(String.fromCharCode(currentPointName.charCodeAt(0) + 1));
-      console.log(currentPointName);
-      const nextCharCode = currentPointName.charCodeAt(0) + 1;
-      if (nextCharCode > 'Z'.charCodeAt(0)) {
-        const numberPart = currentPointName.slice(1);
-        const nextNumberPart = numberPart ? parseInt(numberPart) + 1 : 1;
-        setCurrentPointName('A' + nextNumberPart);
-      } else {
-        setCurrentPointName(String.fromCharCode(nextCharCode) + currentPointName.slice(1));
-      }
+      console.log(newPointName);
 
-      drawPoint(context, point);
+      drawPoint(context, newPoint);
     };
 
     canvas.addEventListener('click', handleClick);
@@ -109,7 +93,7 @@ export const Canvas: React.FC = () => {
       canvas.removeEventListener('click', handleClick);
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [points, currentPointName]);
+  }, [points]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -120,18 +104,51 @@ export const Canvas: React.FC = () => {
     // Draw lines between points
     context.beginPath();
     context.lineWidth = 1;
-    context.strokeStyle = '#000';
+    const isPolygonClosed =
+      points.length >= 3 &&
+      points[0].x === points[points.length - 1].x &&
+      points[0].y === points[points.length - 1].y;
+
+    context.strokeStyle = isPolygonClosed ? 'orange' : '#000';
     points.forEach((point, i) => {
       if (i === 0) {
         context.moveTo(point.x, point.y);
       } else {
         context.lineTo(point.x, point.y);
+        const distanceInPixels = calculateDistance(points[i - 1], point);
+        const distanceInCentimeters = pixelsToCentimeters(distanceInPixels);
+        drawDistance(context, points[i - 1], point, distanceInCentimeters);
       }
     });
     context.stroke();
   }, [points]);
 
-  return <canvas ref={canvasRef} className={styles.grid} />;
-};
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key === 'z') {
+        setHistory((prevHistory) => {
+          if (prevHistory.length > 1) {
+            const newHistory = prevHistory.slice(0, -1);
+            setPoints(newHistory[newHistory.length - 1]);
+            return newHistory;
+          } else {
+            return prevHistory;
+          }
+        });
+      }
+    };
 
-export default Canvas;
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  return (
+    <GridContext.Provider value={{ area, setArea }}>
+      <canvas ref={canvasRef} className={styles.grid} />
+      <AlertComponent />
+    </GridContext.Provider>
+  );
+};
