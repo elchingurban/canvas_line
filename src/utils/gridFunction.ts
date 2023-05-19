@@ -76,6 +76,12 @@ const pixelsToCentimeters = (pixels: number) => {
   return pixels / pixelsPerCentimeter;
 };
 
+const calculateAreaInCm = (points: Point[]) => {
+  const areaInPixels = calculateArea(points);
+  const areaInCm = areaInPixels / (60 * 60); // 60px = 1cm, so 60*60px^2 = 1cm^2
+  return areaInCm;
+};
+
 export {
   drawArea,
   drawGrid,
@@ -85,4 +91,5 @@ export {
   calculateDistance,
   drawDistance,
   pixelsToCentimeters,
+  calculateAreaInCm,
 };

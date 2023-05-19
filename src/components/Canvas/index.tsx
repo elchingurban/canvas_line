@@ -14,6 +14,7 @@ import {
   calculateDistance,
   drawDistance,
   pixelsToCentimeters,
+  calculateAreaInCm,
 } from '../../utils/gridFunction';
 import { AlertComponent } from '../../layout/Alert';
 
@@ -72,8 +73,7 @@ export const Canvas: React.FC = () => {
             context.moveTo(points[points.length - 1].x, points[points.length - 1].y);
             context.lineTo(start.x, start.y);
             context.stroke();
-            const areaInPixels = calculateArea(points);
-            const areaInCmSquare = pixelsToCentimeters(areaInPixels);
+            const areaInCmSquare = calculateAreaInCm(points);
             console.log(`The area of the polygon is ${areaInCmSquare} square cm.`);
             drawArea(context, areaInCmSquare);
           }
